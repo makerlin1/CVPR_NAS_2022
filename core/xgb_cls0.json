@@ -1,0 +1,6 @@
+{
+    "max_depth": 8,
+    "learning_rate": 0.5,
+    "n_estimators": 32,
+    "lambda": 1.5
+}

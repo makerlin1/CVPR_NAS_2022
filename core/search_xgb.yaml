@@ -1,0 +1,30 @@
+experimentName: XGBoost # 用于区分 experiment 的名字，可选项
+searchSpace:
+    max_depth:
+        _type: choice
+        _value: [3, 5, 8]
+
+    learning_rate:
+        _type: choice
+        _value: [0.05, 0.1, 0.2]
+
+    n_estimators:
+        _type: choice
+        _value: [40, 80, 160]
+
+    lambda:
+        _type: choice
+        _value: [1., 0.5, 0.]
+
+
+trialCommand: python xgb.py  # 注意：如果使用 Windows，请将 "python3" 修改为 "python"
+trialConcurrency: 5                # 同时运行 2 个 trial
+maxTrialNumber: 60                  # 最多生成 10 个 trial
+maxExperimentDuration: 24h           # 1 小时后停止生成 trial
+tuner:                              # 配置调优算法
+   name: TPE
+   classArgs:                       # 算法特定参数
+      optimize_mode: maximize
+trainingService:                    # 配置训练平台
+   platform: local
+
