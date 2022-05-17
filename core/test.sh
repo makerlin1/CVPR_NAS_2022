@@ -1,12 +1,11 @@
-python nnbaseline.py -o u128 -dim 128 > u128.txt
-python nnbaseline.py -o u64 -dim 64 > u64.txt
-python nnbaseline.py -o u32 -dim 32 > u32.txt
-python nnbaseline.py -o u16 -dim 16 > u16.txt
-python nnbaseline.py -o u512 -dim 512 > u512.txt
-python nnbaseline.py -o u2048 -dim 2048 > u2048.txt
-python nnbaseline.py -o u8192 -dim 8192 > u8192.txt
-python nnbaseline.py -o u32768 -dim 32768 > u32768.txt
-python nnbaseline.py -o u131072 -dim 131072 > u131072.txt
-python nnbaseline.py -o u524288 -dim 524288 > u524288.txt
-python nnbaseline.py -o u2097152 -dim 2097152 > u2097152.txt
-python nnbaseline.py -o u8388608 -dim 8388608 > u8388608.txt
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+python nnbaseline.py -o kdlloss/cls1/emlp -m emlp -cls 1 -cv 3
+
+

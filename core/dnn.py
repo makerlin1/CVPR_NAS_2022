@@ -78,7 +78,7 @@ class FGM():
         self.model = model
         self.backup = {}
 
-    def attack(self, epsilon=-0.3, emb_name="embedding"):
+    def attack(self, epsilon=1., emb_name="embedding"):
         for name, param in self.model.named_parameters():
             if param.requires_grad and emb_name in name:
                 self.backup[name] = param.data.clone()

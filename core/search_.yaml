@@ -1,0 +1,31 @@
+experimentName: Emlp_cls6 # 用于区分 experiment 的名字，可选项
+searchSpace:
+    dim:
+        _type: choice
+        _value: [32, 64, 128, 512]
+    lr:
+        _type: choice
+        _value: [0.1, 0.05, 0.01]
+    batch_size:
+        _type: choice
+        _value: [8, 32, 64]
+    epochs:
+        _type: choice
+        _value: [512, 1024, 2048]
+    attack:
+        _type: choice
+        _value: [true, false]
+    use_ema:
+        _type: choice
+        _value: [ true, false ]
+trialCommand: python search_.py  # 注意：如果使用 Windows，请将 "python3" 修改为 "python"
+trialConcurrency: 5                # 同时运行 2 个 trial
+maxTrialNumber: 60                  # 最多生成 10 个 trial
+maxExperimentDuration: 24h           # 1 小时后停止生成 trial
+tuner:                              # 配置调优算法
+   name: TPE
+   classArgs:                       # 算法特定参数
+      optimize_mode: maximize
+trainingService:                    # 配置训练平台
+   platform: local
+

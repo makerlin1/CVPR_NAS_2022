@@ -55,8 +55,7 @@ class MyDataset(Dataset):
         super(MyDataset, self).__init__()
         if len(X.shape) != 1:
             X = X.flatten()
-        # self.X = np.array([convert_X(x) for x in X]).astype(np.int64)
-        self.X = np.array([convert_X(x) for x in X]).astype(np.float32)
+        self.X = np.array([convert_X(x) for x in X]).astype(np.int64)
         self.training = False
         if Y is not None:
             self.Y = np.array(Y).astype(np.float32)

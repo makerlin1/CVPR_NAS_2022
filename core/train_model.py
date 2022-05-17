@@ -11,21 +11,11 @@ from nni.nas.pytorch.utils import AverageMeter
 import logging
 from torch.utils.tensorboard import SummaryWriter
 from dnn import FGM, EMA
-from DCN import Emlp
+from DCN import SimpleMLP, Emlp, TRmlp, CRmlp, xDeepFM
 import os
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 import nni
 import scipy.stats
 import inspect
-import os
-import torch.optim
-import torch.nn as nn
-from dataset import MyDataset
-import argparse
-import numpy as np
-import random
-import sys
-from dnn import Kendall_tau_loss
 
 
 def kendall_tau(output, target, num_classes=1):
@@ -38,8 +28,6 @@ def kendall_tau(output, target, num_classes=1):
 
 class Trainer:
     def __init__(self,
-                 X_val,
-                 y_val,
                  device,
                  lr=0.1,
                  batch_size=32,
@@ -51,6 +39,8 @@ class Trainer:
                  save="best.pth",
                  model=None,
                  modelcfg={},
+                 tr_dataset=None,
+                 te_dataset=None,
                  ):
         args, _, _, values = inspect.getargvalues(inspect.currentframe())
         values.pop("self")
@@ -74,14 +64,13 @@ class Trainer:
         self.writer = SummaryWriter(os.path.join(os.environ["SAVE_DIR"], 'tensorboard'))
         self.opt = torch.optim.AdamW(self.model.parameters(),
                                      lr=self.lr)
-        self.criterion = Kendall_tau_loss()
+        self.criterion = nn.MSELoss()
         if self.attack:
             self.fgm = FGM(self.model)
         if self.use_ema:
             # 初始化
             self.ema = EMA(self.model, 0.99)
             self.ema.register()
-        self.te_dataset = MyDataset(self.X_val, self.y_val)
         if self.dynamic_lr:
             self.set_lr_schedulr(self.opt)
 
@@ -92,13 +81,12 @@ class Trainer:
         self.modelcfg["use_ema"] = self.use_ema
         self.modelcfg["dynamic_lr"] = self.dynamic_lr
 
-    def fit(self, X_train, y_train):
+    def fit(self):
         self.build()
-        tr_dataset = MyDataset(X_train, y_train)
         best_kdl = -100
         for epoch in range(self.epochs):
             self.model.train()
-            train_loss = self.train_one_epoch(epoch, tr_dataset)
+            train_loss = self.train_one_epoch(epoch, self.tr_dataset)
             if self.use_ema:
                 self.ema.apply_shadow()
             self.model.eval()
@@ -201,6 +189,15 @@ class Trainer:
 
 
 if __name__ == "__main__":
+    import os
+    import torch.optim
+    import torch.nn as nn
+    from dataset import MyDataset, convert_X
+    from dataset_utils import NASDatasetV2, RANK_NAME
+    import argparse
+    import numpy as np
+    import random
+    import sys
 
     sys.path.append("/tmp/pycharm_project_513")
     from utils import read_labeled_data
@@ -213,50 +210,66 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     parser = argparse.ArgumentParser("train nn")
+    parser.add_argument("-o", type=str)
     parser.add_argument("-cv", type=int, default=1)
     parser.add_argument("-cls", type=int, default=0)
+    parser.add_argument("-dim", type=int, default=32)
+    parser.add_argument("-bs", type=int, default=8)
+    parser.add_argument("-eps", type=int, default=1024)
+    parser.add_argument("-lr", type=float, default=0.1)
+    parser.add_argument("-attack", type=bool, default=False)
+    parser.add_argument("-use_ema", type=bool, default=False)
+    parser.add_argument("-depth", type=int, default=1)
+    parser.add_argument("-save", type=str, default="best.pth")
+    parser.add_argument("-m", type=str, default="simlp")
     args = parser.parse_args()
-    params = nni.get_next_parameter()
-    # parser.add_argument("-dim", type=int, default=32)
-    # parser.add_argument("-bs", type=int, default=8)
-    # parser.add_argument("-eps", type=int, default=1024)
-    # parser.add_argument("-lr", type=float, default=0.1)
-    # parser.add_argument("-attack", type=bool, default=False)
-    # parser.add_argument("-use_ema", type=bool, default=False)
-
-    os.environ["SAVE_DIR"] = ''
+    os.environ["SAVE_DIR"] = args.o
     # 准备数据
-    data_train = read_labeled_data('../data/data-cv5-train%d.json' % args.cv, args.cls)
-    data_val = read_labeled_data('../data/data-cv5-val%d.json' % args.cv, args.cls)
-    X_train, y_train = np.array([x[0] for x in data_train]), np.array([x[1] for x in data_train])
-    X_val, y_val = np.array([x[0] for x in data_val]), np.array([x[1] for x in data_val])
+    # data_train = read_labeled_data('../data/data-cv5-train%d.json' % args.cv, args.cls)
+    # data_val = read_labeled_data('../data/data-cv5-val%d.json' % args.cv, args.cls)
+    # X_train, y_train = np.array([x[0] for x in data_train]), np.array([x[1] for x in data_train])
+    # X_val, y_val = np.array([x[0] for x in data_val]), np.array([x[1] for x in data_val])
 
-    # nas_dataset = NASDatasetV2(use_ranks=[RANK_NAME[args.cls]], mode='val', transform=convert_X)
+    te_dataset = NASDatasetV2(use_ranks=[RANK_NAME[args.cls]], mode='val', transform=convert_X)
     # X_val = np.array(nas_dataset.arch_list_train)
     # y_val = np.array(nas_dataset.train_list).flatten().tolist()
-    # nas_dataset = NASDatasetV2(use_ranks=[RANK_NAME[args.cls]], mode='train', transform=convert_X)
+    tr_dataset = NASDatasetV2(use_ranks=[RANK_NAME[args.cls]], mode='train', transform=convert_X)
     # X_train = np.array(nas_dataset.arch_list_train)
     # y_train = np.array(nas_dataset.train_list).flatten().tolist()
 
     # 设备
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # 配置参数
-    modelcfg = {"dim": params["dim"]}
-    model = Emlp(**modelcfg).to(device)
-    model = Trainer(X_val,
-                    y_val,
+    modelcfg = {"dim": args.dim, "depth": args.depth}
+    if args.m == "simlp":
+        model = SimpleMLP(**modelcfg).to(device)
+    elif args.m == "emlp":
+        model = Emlp(**modelcfg).to(device)
+    elif args.m == "TRmlp":
+        model = TRmlp(**modelcfg).to(device)
+    elif args.m == "CRmlp":
+        model = CRmlp(**modelcfg).to(device)
+    elif args.m == "xdeepfm":
+        model = xDeepFM(**modelcfg).to(device)
+    else:
+        raise ValueError("invalid model")
+
+    model = Trainer(
                     device,
-                    lr=params["lr"],
+                    lr=args.lr,
                     modelcfg=modelcfg,
-                    batch_size=params["bs"],
-                    epochs=params["eps"],
-                    attack=params["attack"],
+                    batch_size=args.bs,
+                    epochs=args.eps,
+                    attack=args.attack,
                     metric=kendall_tau,
-                    use_ema=params["use_ema"],
+                    use_ema=args.use_ema,
                     dynamic_lr=False,
                     model=model,
+                    save=args.save,
+                    tr_dataset=tr_dataset,
+                    te_dataset=te_dataset
                     )
-    model.fit(X_train, y_train)
+    model.fit()
     # y_val_pred = model.predict(X_val[:, None])
     # kdl = scipy.stats.kendalltau(y_val_pred, y_val).correlation
     # print(kdl)
